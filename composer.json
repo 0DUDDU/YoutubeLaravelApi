@@ -1,8 +1,8 @@
 {
-    "name": "alchemyguy/youtube-laravel-api",
-    "description": "It is a wrapper over Youtube Api v3 which simplifies functionalities the laravel way.",
+    "name": "0duddu/youtube-laravel-api",
+    "description": "fork from alchemyguy/youtube-laravel-api, It is a wrapper over Youtube Api v3 which simplifies functionalities the laravel way.",
     "keywords": ["alchemyguy", "YoutubeLaravelApi", "Youtube LiveStream", "php", "Youtube Backup", "Youtube Video", "Youtube Api V3", "laravel", "Oauth", "google api", "Youtube Channel"],
-    "homepage": "https://github.com/alchemyguy/YoutubeLaravelApi",
+    "homepage": "https://github.com/0duddu/YoutubeLaravelApi",
     "license": "MIT",
     "authors": [
         {
@@ -19,12 +19,12 @@
     },
     "autoload": {
         "psr-4": {
-            "alchemyguy\\YoutubeLaravelApi\\": "src"
+            "0duddu\\YoutubeLaravelApi\\": "src"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "alchemyguy\\YoutubeLaravelApi\\": "tests"
+            "0duddu\\YoutubeLaravelApi\\": "tests"
         }
     },
     "scripts": {
