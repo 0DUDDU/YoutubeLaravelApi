@@ -2,149 +2,83 @@
 
 namespace ZeroDUDDU\YoutubeLaravelApi;
 
+use Google\Service\Exception as GoogleServiceException;
+use Google\Exception as GoogleException;
+use Google\Service\YouTube;
+use Google\Service\YouTube\Channel;
+use Google\Service\YouTube\Subscription;
 use ZeroDUDDU\YoutubeLaravelApi\Auth\AuthService;
 use Exception;
 
 class ChannelService extends AuthService
 {
-    /**
-     * [channelsListById -gets the channnel details and ]
-     * @param  $part [id,snippet,contentDetails,status, statistics, contentOwnerDetails, brandingSettings]
-     * @param  $params [array channels id(comma separated ids ) or you can get ('forUsername' => 'GoogleDevelopers')]
-     * @return          [json object of response]
-     */
-    public function channelsListById($part, $params)
+    private readonly Youtube $service;
+
+    public function __construct($token)
     {
-        try {
+        parent::__construct();
 
-            $params = array_filter($params);
-
-            /**
-             * [$service instance of Google_Service_YouTube]
-             * [$response object of channel lists][making api call to list channels]
-             * @var [type]
-             */
-
-            $service = new \Google_Service_YouTube($this->client);
-            $respone = $service->channels->listChannels($part, $params);
-
-            return $service->channels->listChannels($part, $params);
-
-        } catch (\Google_Service_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-            \Log::info(json_encode($e->getMessage()));
-            throw new Exception(json_encode($e->getMessage()), 1);
+        if (!$this->setAccessToken($token)) {
+            throw new Exception('invalid token');
         }
-    }
-
-    public function getChannelDetails($token)
-    {
-        try {
-            if (!$this->setAccessToken($token)) {
-                return false;
-            }
-            $part = "snippet,contentDetails,statistics,brandingSettings";
-            $params = array('mine' => true);
-            $service = new \Google_Service_YouTube($this->client);
-            $response = $service->channels->listChannels($part, $params);
-
-            $response = json_decode(json_encode($response), true);
-            return $response['items'][0];
-
-        } catch (\Google_Service_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-        }
+        $this->service = new YouTube($this->client);
     }
 
     /**
-     * [updateChannelBrandingSettings update channel details]
-     * @param  $google_token [auth token for the channel]
-     * @param  $properties ['id' => '',
-     *                                  'brandingSettings.channel.description' => '',
-     *                                  'brandingSettings.channel.keywords' => '',
-     *                                  'brandingSettings.channel.defaultLanguage' => '',
-     *                                  'brandingSettings.channel.defaultTab' => '',
-     *                                  'brandingSettings.channel.moderateComments' => '',
-     *                                  'brandingSettings.channel.showRelatedChannels' => '',
-     *                                  'brandingSettings.channel.showBrowseView' => '',
-     *                                  'brandingSettings.channel.featuredChannelsTitle' => '',
-     *                                  'brandingSettings.channel.featuredChannelsUrls[]' => '',
-     *                                  'brandingSettings.channel.unsubscribedTrailer' => '')
-     *                                 ]
-     * @param  $part [ brandingSettings ]
-     * @param  $params ['onBehalfOfContentOwner' => '']
-     * @return               [boolean ]
+     * @param array $part [id,snippet,contentDetails,status, statistics, contentOwnerDetails, brandingSettings]
+     * @param array $params [channels id(comma separated ids ) or you can get ('forUsername' => 'GoogleDevelopers')]
      */
-    public function updateChannelBrandingSettings($googleToken, $properties, $part, $params)
+    public function channelsListById(array $part, array $params): YouTube\ChannelListResponse
     {
-        try {
-            $params = array_filter($params);
+        $params = array_filter($params);
 
-            /**
-             * [$service description]
-             * @var [type]
-             */
-            $service = new \Google_Service_YouTube($this->client);
-            $propertyObject = $this->createResource($properties);
+        return $this->service->channels->listChannels($part, $params);
+    }
 
-            $resource = new \Google_Service_YouTube_Channel($propertyObject);
-            $service->channels->update($part, $resource, $params);
+    public function getChannelDetails($token): Channel
+    {
 
-            return true;
+        $part = "snippet,contentDetails,statistics,brandingSettings";
+        $params = array('mine' => true);
+        $response = $this->service->channels->listChannels($part, $params);
 
-        } catch (\Google_Service_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-        }
+        return $response->getItems()[0];
     }
 
     /**
-     * [parseSubscriptions working]
-     * @param  [type] $part
-     * @return [type] $params          array('channelId'= '', 'totalResults'= '')
+     * @param array $properties ['id' => '',
+     *                      'brandingSettings.channel.description' => '',
+     *                      'brandingSettings.channel.keywords' => '',
+     *                      'brandingSettings.channel.defaultLanguage' => '',
+     *                      'brandingSettings.channel.defaultTab' => '',
+     *                      'brandingSettings.channel.moderateComments' => '',
+     *                      'brandingSettings.channel.showRelatedChannels' => '',
+     *                      'brandingSettings.channel.showBrowseView' => '',
+     *                      'brandingSettings.channel.featuredChannelsTitle' => '',
+     *                      'brandingSettings.channel.featuredChannelsUrls[]' => '',
+     *                      'brandingSettings.channel.unsubscribedTrailer' => '')
+     *                      ]
+     * @param string|array $part [ brandingSettings ]
+     * @param array $params ['onBehalfOfContentOwner' => '']
      */
-    public function subscriptionByChannelId($params, $part = 'snippet')
+    public function updateChannelBrandingSettings(array $properties, string|array $part = "", array $params = []): Channel
     {
-        try {
+        $params = array_filter($params);
 
-            $params = array_filter($params);
+        $propertyObject = $this->createResource($properties);
 
-            $service = new \Google_Service_YouTube($this->client);
-            return $this->parseSubscriptions($params);
-
-        } catch (\Google_Service_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-        }
+        $resource = new Channel($propertyObject);
+        return $this->service->channels->update($part, $resource, $params);
     }
 
-    /**
-     * [parseSubscriptions working]
-     * @param  [type] $channelId [description]
-     * @return [type]            [description]
-     */
-    public function parseSubscriptions($params)
+    public function subscriptionByChannelId(array $params): array
+    {
+        $params = array_filter($params);
+
+        return $this->parseSubscriptions($params);
+    }
+
+    public function parseSubscriptions($params): array
     {
         $channelId = $params['channelId'];
         $totalResults = $params['totalResults'];
@@ -154,105 +88,45 @@ class ChannelService extends AuthService
         }
         $maxPages = ($totalResults - ($totalResults % $maxResultsPerPage)) / $maxResultsPerPage + 1;
         $i = 0;
-        try {
-            $service = new \Google_Service_YouTube($this->client);
-            $part = 'snippet';
-            $params = array('channelId' => $channelId, 'maxResults' => $maxResultsPerPage);
-            $nextPageToken = 1;
-            $subscriptions = [];
-            while ($nextPageToken and $i < $maxPages) {
-                if ($i == $maxPages - 1) {
-                    $params['maxResults'] = $totalResults % $maxResultsPerPage + 2;
-                }
-
-                $response = $service->subscriptions->listSubscriptions($part, $params);
-                $response = json_decode(json_encode($response), true);
-                $sub = array_column($response['items'], 'snippet');
-                $sub2 = array_column($sub, 'resourceId');
-                $subscriptions = array_merge($subscriptions, $sub2);
-                $nextPageToken = isset($response['nextPageToken']) ? $response['nextPageToken'] : false;
-
-                $params['pageToken'] = $nextPageToken;
-                $i++;
+        $part = 'snippet';
+        $params = array('channelId' => $channelId, 'maxResults' => $maxResultsPerPage);
+        $nextPageToken = 1;
+        $subscriptions = [];
+        while ($nextPageToken and $i < $maxPages) {
+            if ($i == $maxPages - 1) {
+                $params['maxResults'] = $totalResults % $maxResultsPerPage + 2;
             }
 
-            return $subscriptions;
+            $response = $this->service->subscriptions->listSubscriptions($part, $params);
+            $response = json_decode(json_encode($response), true);
+            $sub = array_column($response['items'], 'snippet');
+            $sub2 = array_column($sub, 'resourceId');
+            $subscriptions = array_merge($subscriptions, $sub2);
+            $nextPageToken = $response['nextPageToken'] ?? false;
 
-        } catch (\Google_Service_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
+            $params['pageToken'] = $nextPageToken;
+            $i++;
         }
 
+        return $subscriptions;
     }
 
-    /**
-     *
-     * properties -  array('snippet.resourceId.kind' => 'youtube#channel','snippet.resourceId.channelId' => 'UCqIOaYtQak4-FD2-yI7hFkw'),
-     * part  = 'snippet'
-     * @param string $value [description]
-     */
-    public function addSubscriptions($properties, $token, $part = 'snippet', $params = [])
+    public function addSubscriptions(
+        array $properties,
+        string|array $part = 'snippet',
+        array $params = []
+    ): Subscription {
+        $params = array_filter($params);
+        $propertyObject = $this->createResource($properties);
+
+        $resource = new Subscription($propertyObject);
+        return $this->service->subscriptions->insert($part, $resource, $params);
+    }
+
+    public function removeSubscription($subscriptionId, $params = []): mixed
     {
-        try {
+        $params = array_filter($params);
 
-            $setAccessToken = $this->setAccessToken($token);
-
-            if (!$setAccessToken) {
-                return false;
-            }
-
-            $service = new \Google_Service_YouTube($this->client);
-
-            $params = array_filter($params);
-            $propertyObject = $this->createResource($properties);
-
-            $resource = new \Google_Service_YouTube_Subscription($propertyObject);
-            $response = $service->subscriptions->insert($part, $resource, $params);
-            return $response;
-
-        } catch (\Google_Service_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-        }
-
+        return $this->service->subscriptions->delete($subscriptionId, $params);
     }
-
-    public function removeSubscription($token, $subscriptionId, $params = [])
-    {
-        try {
-
-            $setAccessToken = $this->setAccessToken($token);
-
-            if (!$setAccessToken) {
-                return false;
-            }
-
-            $service = new \Google_Service_YouTube($this->client);
-
-            $params = array_filter($params);
-
-            $response = $service->subscriptions->delete($subscriptionId, $params);
-
-        } catch (\Google_Service_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-        }
-
-    }
-
 }

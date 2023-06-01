@@ -2,274 +2,163 @@
 
 namespace ZeroDUDDU\YoutubeLaravelApi;
 
+use Google\Http\MediaFileUpload;
+use Google\Service\YouTube;
+use Google\Service\YouTube\Video;
+use Google\Service\YouTube\VideoSnippet;
+use Google\Service\YouTube\VideoStatus;
 use ZeroDUDDU\YoutubeLaravelApi\Auth\AuthService;
 use Exception;
 
 class VideoService extends AuthService
 {
+    private readonly Youtube $youTube;
 
-    /**
-     * [videosListById description]
-     * @param  $part [snippet,contentDetails,id,statistics](comma separated id's if you want to get more than 1 id details)
-     * @param  $params [regionCode,relevanceLanguage,videoCategoryId, videoDefinition, videoDimension]
-     * @return         [description]
-     */
-    public function videosListById($part, $params)
+    public function __construct($token)
     {
-        try {
+        parent::__construct();
 
-            $params = array_filter($params);
-
-            $service = new \Google_Service_YouTube($this->client);
-            return $service->videos->listVideos($part, $params);
-
-        } catch (\Google_Service_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
+        if (!$this->setAccessToken($token)) {
+            throw new Exception('invalid token');
         }
+
+        $this->youTube = new YouTube($this->client);
     }
 
     /**
-     * [searchListByKeyword -get youtube search results by keyoword ]
-     * @param  $part [snippet,id]
-     * @param  $params ['maxResults','q','type','pageToken']
-     * @return         [json object or response]
+     * @param string $part [snippet,contentDetails,id,statistics](comma separated id's)
+     * @param array $params [regionCode,relevanceLanguage,videoCategoryId, videoDefinition, videoDimension]
      */
-    public function searchListByKeyword($part, $params)
+    public function videosListById(string $part, array $params = []): YouTube\VideoListResponse
     {
-        try {
+        $params = array_filter($params);
 
-            $params = array_filter($params);
-
-            $service = new \Google_Service_YouTube($this->client);
-            return $service->search->listSearch($part, $params);
-
-        } catch (\Google_Service_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-        }
+        return $this->youTube->videos->listVideos($part, $params);
     }
 
     /**
-     * [relatedToVideoId - gets realted videos to a particular video id]
-     * @param  $part [ sinppet, id]
-     * @param  $params [ regionCode,relatedToVideoId,relevanceLanguage,videoCategoryId, videoDefinition, videoDimension,    type(video or channel)]
-     * @return         [json Object of response]
+     * @param string $part [snippet,id]
+     * @param array $params ['maxResults','q','type','pageToken']
      */
-    public function relatedToVideoId($part, $params)
+    public function searchListByKeyword(string $part, array $params): YouTube\SearchListResponse
     {
-        try {
+        $params = array_filter($params);
 
-            $params = array_filter($params);
-
-            $service = new \Google_Service_YouTube($this->client);
-            return $service->search->listSearch($part, $params);
-
-        } catch (\Google_Service_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-        }
+        return $this->youTube->search->listSearch($part, $params);
     }
 
     /**
-     * [uploadVideo upload a video to youtube channel]
-     * @param  $google_token [authorization token for the youtube channel ]
-     * @param  $videoPath [path of the video to be uploaded][max video size 128 GB]
-     * @param  $data [video details]
-     * @return               [boolean]
+     * @param string $part [ sinppet, id]
+     * @param array $params [ regionCode,relatedToVideoId,relevanceLanguage,videoCategoryId,type(video or channel)]
      */
-    public function uploadVideo($googleToken, $videoPath, $data)
+    public function relatedToVideoId(string $part, array $params): YouTube\SearchListResponse
     {
-        try {
+        $params = array_filter($params);
 
-            if (!isset($data['title']) || !isset($data['description']) || !isset($data['tags']) || !isset($data['category_id']) || !isset($data['video_status'])) {
-                throw new Exception($e->getMessage(), 1);
-                return false;
-            }
-
-            /**
-             * [setAccessToken [setting accent token to client]]
-             */
-            $setAccessToken = $this->setAccessToken($googleToken);
-            if (!$setAccessToken) {
-                return false;
-            }
-
-            /**
-             * [youtube [instance of Google_Service_YouTube] ]
-             */
-            $youtube = new \Google_Service_YouTube($this->client);
-
-            /**
-             * snippet [title, description, tags and category ID]
-             * asset resource [snippet metadata and type.]
-             */
-            $snippet = new \Google_Service_YouTube_VideoSnippet();
-
-            $snippet->setTitle($data['title']);
-            $snippet->setDescription($data['description']);
-            $snippet->setTags($data['tags']);
-            $snippet->setCategoryId($data['category_id']);
-
-            /**
-             * video status ["public", "private", "unlisted"]
-             */
-            $status = new \Google_Service_YouTube_VideoStatus();
-            $status->privacyStatus = $data['video_status'];
-
-            /**
-             * snippet and status [link with new video resource.]
-             */
-            $video = new \Google_Service_YouTube_Video();
-            $video->setSnippet($snippet);
-            $video->setStatus($status);
-
-            /**
-             * size of chunk to be uploaded  in bytes [default  1 * 1024 * 1024] (Set a higher value for reliable connection as fewer chunks lead to faster uploads)
-             */
-            if (isset($data['chunk_size'])) {
-                $chunkSizeBytes = $data['chunk_size'];
-            } else {
-                $chunkSizeBytes = 1 * 1024 * 1024;
-            }
-
-            /**
-             * Setting the defer flag to true tells the client to return a request which can be called with ->execute(); instead of making the API call immediately
-             */
-            $this->client->setDefer(true);
-
-            /**
-             * request [API's videos.insert method] [ to create and upload the video]
-             */
-            $insertRequest = $youtube->videos->insert("status,snippet", $video);
-
-            /**
-             * MediaFileUpload object [resumable uploads]
-             */
-            $media = new \Google_Http_MediaFileUpload(
-                $this->client,
-                $insertRequest,
-                'video/*',
-                null,
-                true,
-                $chunkSizeBytes
-            );
-
-            $media->setFileSize(filesize($videoPath));
-
-            /**
-             * Read the media file [to upload chunk by chunk]
-             */
-            $status = false;
-            $handle = fopen($videoPath, "rb");
-            while (!$status && !feof($handle)) {
-
-                $chunk = fread($handle, $chunkSizeBytes);
-                $status = $media->nextChunk($chunk);
-            }
-
-            fclose($handle);
-
-            /**
-             * set defer to false [to make other calls after the file upload]
-             */
-            $this->client->setDefer(false);
-            return true;
-
-        } catch (\Google_Service_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-        }
+        return $this->youTube->search->listSearch($part, $params);
     }
 
     /**
-     * [videosDelete delete a youtube video]
-     * @param  $google_token [auth token for the channel owning the video]
-     * @param  $id [video id]
-     * @param  $params [onbelhalf of owner]
-     * @return               [json obj response]
+     * @param string[] $tags
      */
-    public function deleteVideo($googleToken, $id, $params = [])
-    {
-        try {
+    public function uploadVideo(
+        string $videoPath,
+        string $title,
+        string $description,
+        string $categoryId,
+        string $privacyStatus = 'private',
+        array $tags = [],
+        array $data = []
+    ): bool {
+        /**
+         * snippet [title, description, tags and category ID]
+         * asset resource [snippet metadata and type.]
+         */
+        $snippet = new VideoSnippet();
 
-            /**
-             * [setAccessToken [setting accent token to client]]
-             */
-            $setAccessToken = $this->setAccessToken($googleToken);
-            if (!$setAccessToken) {
-                return false;
-            }
+        $snippet->setTitle($title);
+        $snippet->setDescription($description);
+        $snippet->setCategoryId($categoryId);
+        $snippet->setTags($tags);
 
-            /**
-             * [$service (instance of Google_Service_YouTube)]
-             */
-            $params = array_filter($params);
+        /**
+         * video status ["public", "private", "unlisted"]
+         */
+        $status = new VideoStatus();
+        $status->privacyStatus = $privacyStatus;
 
-            $service = new \Google_Service_YouTube($this->client);
-            return $service->videos->delete($id, $params);
+        /**
+         * snippet and status [link with new video resource.]
+         */
+        $video = new Video();
+        $video->setSnippet($snippet);
+        $video->setStatus($status);
 
-        } catch (\Google_Service_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
+        /**
+         * size of chunk to be uploaded  in bytes [default  1 * 1024 * 1024]
+         * (Set a higher value for reliable connection as fewer chunks lead to faster uploads)
+         */
+        if (isset($data['chunk_size'])) {
+            $chunkSizeBytes = $data['chunk_size'];
+        } else {
+            $chunkSizeBytes = 1 * 1024 * 1024;
         }
+
+        /**
+         * Setting the defer flag to true tells the client to return a request which can be called with ->execute();
+         * instead of making the API call immediately
+         */
+        $this->client->setDefer(true);
+
+        /**
+         * request [API's videos.insert method] [ to create and upload the video]
+         */
+        $insertRequest = $this->youTube->videos->insert('status,snippet', $video);
+
+        /**
+         * MediaFileUpload object [resumable uploads]
+         */
+        $media = new MediaFileUpload(
+            $this->client,
+            $insertRequest,
+            'video/*',
+            null,
+            true,
+            $chunkSizeBytes
+        );
+
+        $media->setFileSize(filesize($videoPath));
+
+        /**
+         * Read the media file [to upload chunk by chunk]
+         */
+        $status = false;
+        $handle = fopen($videoPath, "rb");
+        while (!$status && !feof($handle)) {
+            $chunk = fread($handle, $chunkSizeBytes);
+            $status = $media->nextChunk($chunk);
+        }
+
+        fclose($handle);
+
+        /**
+         * set defer to false [to make other calls after the file upload]
+         */
+        $this->client->setDefer(false);
+        return true;
     }
 
-    /*
-     * [adds like dislike or remove ratiing]
-     */
-    public function videosRate($googleToken, $id, $rating = 'like', $params = [])
+    public function deleteVideo(string $id, array $params = []): mixed
     {
+        $params = array_filter($params);
 
-        try {
-
-            $setAccessToken = $this->setAccessToken($googleToken);
-            if (!$setAccessToken) {
-                return false;
-            }
-
-            $service = new Google_Service_YouTube($client);
-
-            $params = array_filter($params);
-            $response = $service->videos->rate(
-                $id, $rating,
-                $params
-            );
-
-        } catch (\Google_Service_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
-        }
+        return $this->youTube->videos->delete($id, $params);
     }
 
+    public function videosRate(string $id, string $rating = 'like', array $params = []): mixed
+    {
+        $params = array_filter($params);
+
+        return $this->youTube->videos->rate($id, $rating, $params);
+    }
 }

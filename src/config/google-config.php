@@ -1,11 +1,12 @@
 <?php
+
 return [
-    'app_name' => env('APP_NAME'),
     'client_id' => env('GOOGLE_CLIENT_ID'),
     'client_secret' => env('GOOGLE_CLIENT_SECRET'),
     'api_key' => env('GOOGLE_API_KEY'),
     'redirect_url' => env('GOOGLE_REDIRECT_URL'),
-    'yt_language' => array("Afrikaans" => "af",
+    'yt_language' => [
+        "Afrikaans" => "af",
         "Azerbaijani" => "az",
         "Indonesian" => "id",
         "Malay" => "ms",
@@ -84,5 +85,6 @@ return [
         "Chinese (Taiwan)" => "zh-TW",
         "Chinese (Hong Kong)" => "zh-HK",
         "Japanese" => "ja",
-        "Korean" => "ko")
+        "Korean" => "ko"
+    ]
 ];

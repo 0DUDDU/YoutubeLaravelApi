@@ -71,8 +71,8 @@ $authUrl = $authObject->getLoginUrl('email','identifier');
 	Now once the user authorizes by visiting the url, the authcode will be redirected to the redirect_url specified in .env with params as code( this will be auth code) and  state (this will be identifier we added during making the loginUrl)
 
 ```php
-$code = Input::get('code');
-$identifier = Input::get('state');
+$code = $request->get('code');
+$identifier = $request->get('state');
 
 ```
 
@@ -80,7 +80,7 @@ $identifier = Input::get('state');
 
 ```php
 $authObject  = new AuthenticateService;
-$authResponse = $authObject->authChannelWithCode($code);
+$authResponse = $authObject->authChannelWithCode($code, true);
 ```
 
 - **This will return an array**: 
@@ -89,6 +89,21 @@ $authResponse['token'] (Channel Token)
 $authResponse['channel_details']
 $authResponse['live_streaming_status'] (enabled or disabled)
 ```
+
+-  **Auth-Token only**
+
+```php
+$authObject  = new AuthenticateService;
+$authResponse = $authObject->authChannelWithCode($code, false);
+```
+
+- **This will return an array**:
+```
+$authResponse['token'] (Channel Token)
+```
+
+-  **Refresh Token**
+   If your token expires, it will be refreshed using the refresh token, and the new token will be available by calling `getNewToken()` on any object. It will return null if no new token has been fetched. 
 
 ### Full Live Streaming API 
 
@@ -106,26 +121,23 @@ use  ZeroDUDDU\YoutubeLaravelApi\LiveStreamService;
 ```php
 # data format creating live event
 $data = array(
-	"title" => "",
-	"description" => "",
 	"thumbnail_path" => "",				// Optional
 	"event_start_date_time" => "",
 	"event_end_date_time" => "",			// Optional
 	"time_zone" => "",
-	'privacy_status' => "",				// default: "public" OR "private"
+	'privacy_status' => "",				// default: "private"
 	"language_name" => "",				// default: "English"
 	"tag_array" => ""				// Optional and should not be more than 500 characters
 );
 
-$ytEventObj = new LiveStreamService();
+$ytEventObj = new LiveStreamService($authToken);
 /**
  * The broadcast function returns array of details from YouTube.
  * Store this information & will be required to supply to youtube 
  * for live streaming using encoder of your choice. 
  */
-$response = $ytEventObj->broadcast($authToken, $data);
+$response = $ytEventObj->broadcast($title, $description,  $data);
 if ( !empty($response) ) {
-
 	$youtubeEventId = $response['broadcast_response']['id'];
 	$serverUrl = $response['stream_response']['cdn']->ingestionInfo->ingestionAddress;
 	$serverKey = $response['stream_response']['cdn']->ingestionInfo->streamName;
@@ -136,12 +148,12 @@ if ( !empty($response) ) {
 - **Updating a Youtube Event**
 
 ```php
-$ytEventObj = new LiveStreamService();
+$ytEventObj = new LiveStreamService($authToken);
 /**
 * The updateBroadcast response give details of the youtube_event_id,server_url and server_key. 
 * The server_url & server_key gets updated in the process. (save the updated server_key and server_url).
 */
-$response = $ytEventObj->updateBroadcast($authToken, $data, $youtubeEventId);
+$response = $ytEventObj->updateBroadcast($data, $youtubeEventId);
 
 // $youtubeEventId = $response['broadcast_response']['id'];
 // $serverUrl = $response['stream_response']['cdn']->ingestionInfo->ingestionAddress;
@@ -151,16 +163,16 @@ $response = $ytEventObj->updateBroadcast($authToken, $data, $youtubeEventId);
 - **Deleting a Youtube Event**
 
 ```php
-$ytEventObj = new LiveStreamService();
+$ytEventObj = new LiveStreamService($authToken);
 
 # Deleting the event requires authentication token for the channel in which the event is created and the youtube_event_id
-$ytEventObj->deleteEvent($authToken, $youtubeEventId);
+$ytEventObj->deleteEvent($youtubeEventId);
 ```
 
 - Starting a Youtube Event Stream:
 
 ```php
-$ytEventObj = new LiveStreamService();
+$ytEventObj = new LiveStreamService($authToken);
 /**
  * $broadcastStatus - ["testing", "live"]
  * Starting the event takes place in 3 steps
@@ -169,18 +181,18 @@ $ytEventObj = new LiveStreamService();
  * 3. If transitioEvent() returns successfull for testing broadcast status, then start live streaming your video by passing $broadcastStatus="live" 
  * & in response it will return us the stream status.
  */ 
-$streamStatus = $ytEventObj->transitionEvent($authToken, $youtubeEventId, $broadcastStatus);	
+$streamStatus = $ytEventObj->transitionEvent($youtubeEventId, $broadcastStatus);	
 ```
 
 - **Stopping a Youtube Event Stream**
 
 ```php
-$ytEventObj = new LiveStreamService();
+$ytEventObj = new LiveStreamService($authToken);
 /**
  * $broadcastStatus - ["complete"]
  * Once live streaming gets started succesfully. We can stop the streaming the video by passing broadcastStatus="complete" and in response it will give us the stream status.
  */
-$ytEventObj->transitionEvent($authToken, $youtubeEventId, $broadcastStatus);	// $broadcastStatus = ["complete"]
+$ytEventObj->transitionEvent($youtubeEventId, $broadcastStatus);	// $broadcastStatus = ["complete"]
 ```
 
 
@@ -197,7 +209,6 @@ use  ZeroDUDDU\YoutubeLaravelApi\ChannelService;
 
 - **Channel details By Channel Id**
 	If you want channel details for multiple channels add channel id saperated by commas(,) in param
-	`NOTE: This doesn't require authorization token`
 
 ```php
 /**
@@ -208,7 +219,7 @@ use  ZeroDUDDU\YoutubeLaravelApi\ChannelService;
 
 $part = 'id,snippet';
 $params = array('id'=> 'channel_1_id,channel_2_id');
-$channelServiceObject  = new ChannelService;
+$channelServiceObject  = new ChannelService($authToken);
 $channelDetails = $channelServiceObject->channelsListById($part, $params);
 
 ```
@@ -232,7 +243,7 @@ $channelDetails = $channelServiceObject->getChannelDetails($authToken);
 * totalResults = the amount of results you want
 * maxResults = max of results PER PAGE. We don't need this parameter here since it will loop until it gets all the results you want.
 */
-$channelServiceObject  = new ChannelService;
+$channelServiceObject  = new ChannelService($authToken);
 $channelDetails = $channelServiceObject->subscriptionByChannelId($params);
 ```
 
@@ -272,8 +283,8 @@ $response = $channelServiceObject->removeSubscription( $token, $subscriptionId);
  *					'brandingSettings.channel.unsubscribedTrailer' => '')
  */
 
-$channelServiceObject  = new ChannelService;
-$response = $channelServiceObject->updateChannelBrandingSettings($googleToken, $properties);
+$channelServiceObject  = new ChannelService($authToken);
+$response = $channelServiceObject->updateChannelBrandingSettings($properties);
 ```
 
 ### Full Youtube Video API
@@ -291,31 +302,22 @@ use  ZeroDUDDU\YoutubeLaravelApi\VideoService;
 
 ```php
 $part ='snippet,contentDetails,id,statistics';
-$params =array('id'=>'xyzgh');
-$videoServiceObject  = new VideoService;
+$params =['id'=>'xyzgh'];
+$videoServiceObject  = new VideoService($authToken);
 $response = $videoServiceObject->videosListById($part, $params);
 ```
 
 - **Upload Video To Your Channel**
 ```php
 
-/*
-* $videoPath  	path to the video
-* $data   		array('title'=>"",
-*					'description'=>"",
-*					'tags'=>"",
-*					'category_id'=>"",
-*					'video_status'=>"")
-*/
-
-$videoServiceObject  = new VideoService;
-$response = $videoServiceObject->uploadVideo($googleToken, $videoPath, $data);
+$videoServiceObject  = new VideoService($authToken);
+$response = $videoServiceObject->uploadVideo($videoPath, $title, $description, $categoryId, $privacyStatus, $tags, $data);
 ```
 
 - **Delete Video To Your Channel**
 ```php
-$videoServiceObject  = new VideoService;
-$response = $videoServiceObject->deleteVideo($googleToken, $videoId);
+$videoServiceObject  = new VideoService($authToken);
+$response = $videoServiceObject->deleteVideo($videoId);
 ```
 
 
@@ -324,8 +326,8 @@ $response = $videoServiceObject->deleteVideo($googleToken, $videoId);
 
 ```php
 # rating  'like' or 'dislike' or 'none'
-	$videoServiceObject  = new VideoService;
-$response = $videoServiceObject->videosRate($googleToken, $videoId, $rating);
+	$videoServiceObject  = new VideoService($authToken);
+$response = $videoServiceObject->videosRate( $videoId, $rating);
 
 ```
 

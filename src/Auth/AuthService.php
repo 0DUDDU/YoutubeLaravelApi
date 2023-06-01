@@ -2,24 +2,27 @@
 
 namespace ZeroDUDDU\YoutubeLaravelApi\Auth;
 
-use Exception;
+use Google\Client as GoogleClient;
+use Illuminate\Support\Facades\Config;
 
 /**
  *  Api Service For Auth
  */
 class AuthService
 {
-    protected $client;
-    protected $ytLanguage;
+    protected GoogleClient $client;
+    protected array $ytLanguage;
+    protected ?string $newToken = null;
+
 
     public function __construct()
     {
-        $this->client = new \Google_Client;
+        $this->client = new GoogleClient();
 
-        $this->client->setClientId(\Config::get('google-config.client_id'));
-        $this->client->setClientSecret(\Config::get('google-config.client_secret'));
-        $this->client->setDeveloperKey(\Config::get('google-config.api_key'));
-        $this->client->setRedirectUri(\Config::get('google-config.redirect_url'));
+        $this->client->setClientId(Config::get('google-config.client_id'));
+        $this->client->setClientSecret(Config::get('google-config.client_secret'));
+        $this->client->setDeveloperKey(Config::get('google-config.api_key'));
+        $this->client->setRedirectUri(Config::get('google-config.redirect_url'));
 
         $this->client->setScopes([
             'https://www.googleapis.com/auth/youtube',
@@ -27,185 +30,95 @@ class AuthService
 
         $this->client->setAccessType('offline');
         $this->client->setPrompt('consent');
-        $this->ytLanguage = \Config::get('google.yt_language');
-
+        $this->ytLanguage = Config::get('google.yt_language');
     }
 
-    /**
-     * [getToken -generate token from response code recived on visiting the login url generated]
-     * @param  [type] $code [code for auth]
-     * @return [type]       [authorization token]
-     */
-    public function getToken($code)
+    public function getToken(string $code): array
     {
-        try {
+        $this->client->fetchAccessTokenWithAuthCode($code);
 
-            $this->client->authenticate($code);
-            $token = $this->client->getAccessToken();
-            return $token;
-
-        } catch (\Google_Service_Exception $e) {
-
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-
-            throw new Exception($e->getMessage(), 1);
-
-        }
+        return $this->client->getAccessToken();
     }
 
-    /**
-     * [getLoginUrl - generates the url login url to generate auth token]
-     * @param  [type] $youtube_email [account to be authenticated]
-     * @param  [type] $channelId     [return identifier]
-     * @return [type]                [auth url to generate]
-     */
-    public function getLoginUrl($youtube_email, $channelId = null)
+    public function getLoginUrl(string $youtube_email, string $channelId = null): string
     {
-        try {
-            if (!empty($channelId)) {
-                $this->client->setState($channelId);
-            }
-
-            $this->client->setLoginHint($youtube_email);
-            $authUrl = $this->client->createAuthUrl();
-            return $authUrl;
-
-        } catch (\Google_Service_Exception $e) {
-
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-
-            throw new Exception($e->getMessage(), 1);
+        if (!empty($channelId)) {
+            $this->client->setState($channelId);
         }
 
+        $this->client->setLoginHint($youtube_email);
+
+        return $this->client->createAuthUrl();
     }
 
-    /**
-     * [setAccessToken -setting the access token to the client]
-     * @param [type] $google_token [googel auth token]
-     */
-    public function setAccessToken($google_token = null)
+    public function setAccessToken(string|array $google_token = null): bool
     {
-        try {
-
-            if (!is_null($google_token)) {
-                $this->client->setAccessToken($google_token);
-            }
-
-            if (!is_null($google_token) && $this->client->isAccessTokenExpired()) {
-                $refreshed_token = $this->client->getRefreshToken();
-                $this->client->fetchAccessTokenWithRefreshToken($refreshed_token);
-                $newToken = $this->client->getAccessToken();
-                $newToken = json_encode($newToken);
-            }
-
-            return !$this->client->isAccessTokenExpired();
-
-        } catch (\Google_Service_Exception $e) {
-
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (\Google_Exception $e) {
-
-            throw new Exception($e->getMessage(), 1);
-
-        } catch (Exception $e) {
-
-            throw new Exception($e->getMessage(), 1);
+        if (!is_null($google_token)) {
+            $this->client->setAccessToken($google_token);
         }
-    }
 
-    /**
-     * [createResource creating a resource array and addind properties to it]
-     * @param  $properties [param properties to be added to channel]
-     * @return             [resource array]
-     */
-    public function createResource($properties)
-    {
-        try {
-
-            $resource = array();
-            foreach ($properties as $prop => $value) {
-
-                if ($value) {
-                    /**
-                     * add property to resource
-                     */
-                    $this->addPropertyToResource($resource, $prop, $value);
-                }
-            }
-
-            return $resource;
-
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
+        if (!is_null($google_token) && $this->client->isAccessTokenExpired()) {
+            $refreshed_token = $this->client->getRefreshToken();
+            $this->client->fetchAccessTokenWithRefreshToken($refreshed_token);
+            $newToken = $this->client->getAccessToken();
+            $this->newToken = json_encode($newToken);
         }
+
+        return !$this->client->isAccessTokenExpired();
     }
 
-    /**
-     * [addPropertyToResource description]
-     * @param &$ref [using reference of array from createResource to add property to it]
-     * @param $property [property to be inserted to resource array]
-     */
-    public function addPropertyToResource(&$ref, $property, $value)
+    public function getNewToken(): ?string
     {
-        try {
+        return $this->newToken;
+    }
 
-            $keys = explode(".", $property);
-            $isArray = false;
-            foreach ($keys as $key) {
-
+    public function createResource(array $properties): array
+    {
+        $resource = [];
+        foreach ($properties as $prop => $value) {
+            if ($value) {
                 /**
-                 * snippet.tags[]  [convert to snippet.tags]
-                 * a boolean variable  [to handle the value like an array]
+                 * add property to resource
                  */
-                if (substr($key, -2) == "[]") {
-                    $key = substr($key, 0, -2);
-                    $isArray = true;
-                }
-
-                $ref = &$ref[$key];
+                $this->addPropertyToResource($resource, $prop, $value);
             }
+        }
+
+        return $resource;
+    }
+
+    public function addPropertyToResource(array &$ref, string $property, string $value): void
+    {
+        $keys = explode(".", $property);
+        $isArray = false;
+        foreach ($keys as $key) {
 
             /**
-             * Set the property value [ handling the array values]
+             * snippet.tags[]  [convert to snippet.tags]
+             * a boolean variable  [to handle the value like an array]
              */
-            if ($isArray && $value) {
-
-                $ref = $value;
-                $ref = explode(",", $value);
-
-            } elseif ($isArray) {
-
-                $ref = array();
-
-            } else {
-
-                $ref = $value;
+            if (substr($key, -2) == "[]") {
+                $key = substr($key, 0, -2);
+                $isArray = true;
             }
 
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), 1);
+            $ref = &$ref[$key];
+        }
+
+        /**
+         * Set the property value [ handling the array values]
+         */
+        if ($isArray && $value) {
+            $ref = $value;
+            $ref = explode(",", $value);
+        } elseif ($isArray) {
+            $ref = array();
+        } else {
+            $ref = $value;
         }
     }
 
-    /**
-     * [parseTime - parse the video time in to description format]
-     * @param  $time [youtube returned time format]
-     * @return       [string parsed time]
-     */
-    public function parseTime($time)
+    public function parseTime($time): array|string
     {
         $tempTime = str_replace("PT", " ", $time);
         $tempTime = str_replace('H', " Hours ", $tempTime);
@@ -214,5 +127,4 @@ class AuthService
 
         return $tempTime;
     }
-
 }
