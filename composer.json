@@ -21,12 +21,7 @@
     },
     "autoload": {
         "psr-4": {
-            "0duddu\\YoutubeLaravelApi\\": "src"
-        }
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "0duddu\\YoutubeLaravelApi\\": "tests"
+            "ZeroDUDDU\\YoutubeLaravelApi\\": "src"
         }
     },
     "scripts": {
@@ -41,7 +36,7 @@
         },
         "laravel": {
             "providers": [
-                "alchemyguy\\YoutubeLaravelApi\\YoutubeLaravelApiServiceProvider"
+                "ZeroDUDDU\\YoutubeLaravelApi\\YoutubeLaravelApiServiceProvider"
             ]
         }
     },
