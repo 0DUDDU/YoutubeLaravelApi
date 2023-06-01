@@ -12,8 +12,8 @@ use Google\Service\YouTube\LiveStream;
 use Google\Service\YouTube\LiveStreamSnippet;
 use Google\Service\YouTube\VideoRecordingDetails;
 use ZeroDUDDU\YoutubeLaravelApi\Auth\AuthService;
+use ZeroDUDDU\YoutubeLaravelApi\Exception\MissingRequiredParameterException;
 use Carbon\Carbon;
-use Exception;
 
 /**
  *  Api Service For Youtube Live Events

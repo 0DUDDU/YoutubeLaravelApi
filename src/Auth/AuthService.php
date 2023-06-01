@@ -30,7 +30,7 @@ class AuthService
 
         $this->client->setAccessType('offline');
         $this->client->setPrompt('consent');
-        $this->ytLanguage = Config::get('google.yt_language');
+        $this->ytLanguage = Config::get('google-config.yt_language');
     }
 
     public function getToken(string $code): array

@@ -35,9 +35,8 @@ class ChannelService extends AuthService
         return $this->service->channels->listChannels($part, $params);
     }
 
-    public function getChannelDetails($token): Channel
+    public function getChannelDetails(): Channel
     {
-
         $part = "snippet,contentDetails,statistics,brandingSettings";
         $params = array('mine' => true);
         $response = $this->service->channels->listChannels($part, $params);
