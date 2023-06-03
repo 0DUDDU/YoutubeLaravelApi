@@ -69,7 +69,7 @@ class VideoService extends AuthService
         string $privacyStatus = 'private',
         array $tags = [],
         array $data = []
-    ): bool {
+    ): Video {
         /**
          * snippet [title, description, tags and category ID]
          * asset resource [snippet metadata and type.]
@@ -145,7 +145,7 @@ class VideoService extends AuthService
          * set defer to false [to make other calls after the file upload]
          */
         $this->client->setDefer(false);
-        return true;
+        return $insertRequest;
     }
 
     public function deleteVideo(string $id, array $params = []): mixed
