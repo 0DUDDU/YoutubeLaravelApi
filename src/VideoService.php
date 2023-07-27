@@ -145,7 +145,8 @@ class VideoService extends AuthService
          * set defer to false [to make other calls after the file upload]
          */
         $this->client->setDefer(false);
-        return $insertRequest;
+
+        return $status;
     }
 
     public function deleteVideo(string $id, array $params = []): mixed
